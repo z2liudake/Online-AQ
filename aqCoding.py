@@ -111,15 +111,7 @@ def encodePointHillClimbing(startPid, pointsCount, pointCodebookProducts, codebo
     return (assigns, errors)
 
 def encodePointsSimpleBeamSearch(startPid, pointsCount, pointCodebookProducts, codebooksProducts, codebooksNorms, branch):
-    """
-        Simple Beam Search
-        startPid: 当前需要编码的一组向量的起始index
-        pointsCount: 当前需要编码的向量个数
-        pointCodebookProducts: 编码向量与codebook里每个codeword的内积
-        codebooksProducts：codebook里codeword之间的内积的2倍
-        codebooksNorms：codebook里每个codeword与自身的内积
-        branch：Beam Search中的参数 N
-    """
+
     M = codebooksProducts.shape[0]
     K = codebooksProducts.shape[1]
 
@@ -129,17 +121,17 @@ def encodePointsSimpleBeamSearch(startPid, pointsCount, pointCodebookProducts, c
     errors = np.zeros((pointsCount), dtype='float32')
 
     for pid in range(startPid, startPid+pointsCount):
-        #初始化计算x与第一个码书中的每个码字的距离
+
         distances = - pointCodebookProducts[pid,0:K] + codebooksNorms[0:K]
 
-        # 初始的与待编码向量最接近的branch个codeword
+
         bestIdx = distances.argsort()[0:branch]
 
-        #记录codeword index的 branch 个tuple
+
         bestSums = -1 * np.ones((branch, M), dtype='int32')
         bestSums[:,0] = bestIdx
         
-        #记录branch 个 tuple 当前与x之间的距离
+
         bestSumScores = distances[bestIdx]
         
         for m in range(1, M):
@@ -168,14 +160,7 @@ def encodePointsSimpleBeamSearch(startPid, pointsCount, pointCodebookProducts, c
     return (assigns, errors)
 
 def encodePointsBeamSearch(startPid, pointsCount, pointCodebookProducts, codebooksProducts, codebooksNorms, branch):
-    """
-        startPid: 当前需要编码的一组向量的起始index
-        pointsCount: 当前需要编码的向量个数
-        pointCodebookProducts: 编码向量与codebook里每个codeword的内积
-        codebooksProducts：codebook里codeword之间的内积的2倍
-        codebooksNorms：codebook里每个codeword与自身的内积
-        branch：Beam Search中的参数 N
-    """
+
     M = codebooksProducts.shape[0]
     K = codebooksProducts.shape[1]
 
@@ -393,7 +378,7 @@ def encodePointsSampleBeamSearch(startPid, pointsCount, pointCodebookProducts, c
         distances = - pointCodebookProducts[pid,:] + codebooksNorms
 
         for _ in range(maxIter):
-            #selectCB: codebooks to be beam search
+
             selectCB = np.sort(np.array(random.sample(list(range(M)), numCB), dtype=np.int32))
             helpIndex = np.hstack([np.arange(i*K,(i+1)*K, dtype=np.int32) for i in selectCB])
 
@@ -401,7 +386,7 @@ def encodePointsSampleBeamSearch(startPid, pointsCount, pointCodebookProducts, c
             bestSums[:] = bestAssigns
             bestSums[:,selectCB] = -1
 
-            #error on fixed index
+
             for idx1,t1 in enumerate(bestAssigns):
                 if t1 in selectCB:
                     continue
@@ -420,7 +405,7 @@ def encodePointsSampleBeamSearch(startPid, pointsCount, pointCodebookProducts, c
 
                 globalHashTable = np.zeros(115249, dtype='int8')
 
-                #check for right
+
                 for candidateIdx in range(branch):
                     for m in range(M):
                         if bestSums[candidateIdx, m] < 0:
@@ -480,15 +465,14 @@ def metaSimpleBeamSearch(pointCodebooksProduct, codebooksProducts, codebooksNorm
     M = codebooksProducts.shape[0]
     K = codebooksProducts.shape[1]
 
-    #初始化计算x与第一个码书中的每个字的距离
     distances = - pointCodebooksProduct[0:K] + codebooksNorms[0:K]
     bestIdx = distances.argsort()[0:branch]
 
-    #记录codeword index的 branch 个tuple
+
     bestSums = -1 * np.ones((branch, M), dtype='int32')
     bestSums[:,0] = bestIdx
 
-    #记录branch 个 tuple 当前与x之间的距离
+
     bestSumScores = distances[bestIdx] 
 
     for m in range(1, M):
@@ -526,11 +510,11 @@ def encodePointsAQ(points, codebooks, branch, mode=encodeMode):
     M = codebooks.shape[0]
     K = codebooks.shape[1]
 
-    # 每个codeword与其他所有codeword的内积的2倍
+
     codebooksProducts = np.zeros((M,K,M*K), dtype='float32')
-    # 中间的辅助变量，用以记录每个codeword与其他所有codeword的内积的2倍
+
     fullProducts = np.zeros((M,K,M,K), dtype='float32')
-    # 每个codeword与自身的内积
+
     codebooksNorms = np.zeros((M*K), dtype='float32')
 
     for m1 in range(M):
@@ -539,31 +523,28 @@ def encodePointsAQ(points, codebooks, branch, mode=encodeMode):
         codebooksNorms[m1*K:(m1+1)*K] = fullProducts[m1,:,m1,:].diagonal() / 2
         codebooksProducts[m1,:,:] = np.reshape(fullProducts[m1,:,:,:], (K,M*K))
 
-    #用以记录新的assigns
+
     assigns = np.zeros((pointsCount, M), dtype='int32')
 
-    #分批次对points进行encode
     pidChunkSize = min(pointsCount, 5030)
 
-    #用以记录重新编码后量化误差的向量
+
     errors = np.zeros(pointsCount, dtype='float32')
 
     for startPid in range(0, pointsCount, pidChunkSize):
-        
-        #当前循环中有多少个points需要编码
+
         realChunkSize = min(pidChunkSize, pointsCount - startPid)
         
-        #当前循环中需要编码的points
+
         chunkPoints = points[startPid:startPid+realChunkSize,:]
 
-        #需要编码的points和每个codeword的内积
         queryProducts = np.zeros((realChunkSize, M * K), dtype=np.float32)
         for pid in range(realChunkSize):
             errors[pid+startPid] += np.dot(chunkPoints[pid,:], chunkPoints[pid,:].T)
         for m in range(M):
             queryProducts[:,m*K:(m+1)*K] = 2 * np.dot(chunkPoints, codebooks[m,:,:].T)
 
-        #进程数量
+
         poolSize = 8
         if realChunkSize>=poolSize:
             chunkSize = realChunkSize // poolSize
@@ -842,14 +823,7 @@ def calculateDistancesAQ(qid, codebooksProducts, queryCodebookProducts, pointCod
     return distances.argsort()[0:listLength]
 
 def searchNearestNeighborsAQ(codesSource, codebookSource, queriesSource, queriesCount, threadsCount=15, k=1024):
-    """
-        codeFilename: base_vector 的编码表
-        codebookFilename：codebooks 的存放位置
-        queriesFilename: 查询向量的路径
-        queriesCount:查询向量的个数
-        threadsCount: 进程数量
-        k:最近的k个邻居
-    """
+
     if isinstance(codebookSource, str):
         with open(codebookSource, 'rb') as f:
             codebooks = pickle.load(f)
@@ -897,14 +871,7 @@ def searchNearestNeighborsAQ(codesSource, codebookSource, queriesSource, queries
     return nearest
 
 def searchNearestNeighborsAQFAST(codesSource, codebookSource, queriesSource, queriesCount, threadsCount=15, k=1024):
-    """
-        codeFilename: base_vector 的编码表
-        codebookFilename：codebooks 的存放位置
-        queriesFilename: 查询向量的路径
-        queriesCount:查询向量的个数
-        threadsCount: 进程数量
-        k:最近的k个邻居
-    """
+
     if isinstance(codebookSource, str):
         with open(codebookSource, 'rb') as f:
             codebooks = pickle.load(f)
@@ -912,20 +879,20 @@ def searchNearestNeighborsAQFAST(codesSource, codebookSource, queriesSource, que
         codebooks = codebookSource
     M = codebooks.shape[0]
     codebookSize = codebooks.shape[1]
-    # print(f'codebook shape is {codebooks.shape}.')
+
 
     if isinstance(codesSource, str):
         with open(codesSource, 'rb') as f:
             codes = pickle.load(f)
     else:
         codes = codesSource
-    # print(f'codes shape is {codes.shape}.')
+
 
     if isinstance(queriesSource, str):
         queries = fvecs_read(queriesSource)
     else:
         queries = queriesSource
-    # print(f'queries shape is {queries.shape}.')
+
 
     codebooksProducts = np.zeros((M, M, codebookSize, codebookSize),dtype='float32')
     for i in range(M):
@@ -974,11 +941,11 @@ def encodePointsAQStreaming(curData, codebooks, inferenceN, mode=encodeMode):
     M = codebooks.shape[0]
     K = codebooks.shape[1]
 
-    # 每个codeword与其他所有codeword的内积的2倍
+
     codebooksProducts = np.zeros((M,K,M*K), dtype='float32')
-    # 中间的辅助变量，用以记录每个codeword与其他所有codeword的内积的2倍
+
     fullProducts = np.zeros((M,K,M,K), dtype='float32')
-    # 每个codeword与自身的内积
+
     codebooksNorms = np.zeros((M*K), dtype='float32')
 
     for m1 in range(M):
@@ -1021,22 +988,12 @@ def onlineBatch(points, startIndexPerBatch, dim, M, K, basePointsCount, numGroup
     initPoints = points[:initEndIndex,:]
     print(f'init end index is {initEndIndex}.')
 
-    initCodebooks,initAssigns,initOldAssigns = learnCodebooksAQ(points, dim, M, K, \
-                                                 pointsCount, codebooksFilename, \
+    initCodebooks,initAssigns,initOldAssigns = learnCodebooksAQ(initPoints, dim, M, K, \
+                                                 initEndIndex, codebooksFilename, \
                                                  trainN, saveCodebook=True, \
                                                  threadsCount=threadsCount, \
                                                  itsCount=itsCount)
-    return
-    # with open(codebooksFilename, 'rb') as f:
-    #     initCodebooks = pickle.load(f)
-    
-    # codesFilename = codebooksFilename.replace('codebooks','codes')
-    # with open(codesFilename, 'rb') as f:
-    #     initAssigns = pickle.load(f)
-    
-    # oldCodesFilename = codebooksFilename.replace('codebooks', 'oldcodes')
-    # with open(oldCodesFilename, 'rb') as f:
-    #     initOldAssigns = pickle.load(f)
+
 
     print(f'Begin to initalize.')
 
