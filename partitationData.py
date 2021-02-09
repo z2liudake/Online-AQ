@@ -110,7 +110,7 @@ def ratioPartition(dataset, param, ratio=0.5, seed=None):
         # rawdata = np.load(baseFilename, allow_pickle=True)
         # numClass = rawdata.shape[0]
         # points = np.vstack([rawdata[i] for i in range(numClass)])
-        data = matIO.loadmat('/amax/home/liuqi/gistdescriptor/sun397.mat')
+        data = matIO.loadmat('./gistdescriptor/sun397.mat')
         rawdata = data['gist']
         numClass = rawdata.shape[0]
         points = np.vstack([rawdata[i][0] for i in range(numClass)])
